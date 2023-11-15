@@ -7,8 +7,8 @@
 #include <opencv2/opencv.hpp>
 #include <opencv2/highgui/highgui.hpp>
 
-#define LEFTCAMINDEX 1
-#define RIGHTCAMINDEX 2
+#define LEFTCAMINDEX 0
+#define RIGHTCAMINDEX 1
 #define BOARDWIDTH 11
 #define BOARDHEIGHT 8
 #define CHECKERSIZE 12 // [mm]
