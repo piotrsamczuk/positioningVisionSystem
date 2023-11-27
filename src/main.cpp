@@ -13,6 +13,7 @@
 #define BOARDHEIGHT 8
 #define CHECKERSIZE 12 // [mm]
 #define SQUARESIZE ((CHECKERSIZE * CHECKERSIZE) * 0.01) // [sqmm]
+#define NUMBEROFIMAGES 50
 
 
 void getCameraIndexes()
@@ -73,7 +74,7 @@ void viewCombinedCameraFeeds(cv::VideoCapture& capLeft, cv::VideoCapture& capRig
     cv::destroyAllWindows();
 }
 
-std::pair<cv::VideoCapture, cv::VideoCapture> startVideoCaptures(const unsigned int& leftCameraIndex, const unsigned int& rightCameraIndex)
+std::pair<cv::VideoCapture, cv::VideoCapture> startVideoCaptures(const unsigned int& leftCameraIndex, const unsigned int& rightCameraIndex) // maybe use int instead of const ref (4 bytes vs 8 bytes)
 {
     cv::VideoCapture capLeft(leftCameraIndex);
     cv::VideoCapture capRight(rightCameraIndex);
@@ -121,8 +122,6 @@ void writeCalibrationData(const cv::Mat& K, const cv::Mat& D)
 void captureImagesForCalibration(cv::VideoCapture& capLeft, cv::VideoCapture& capRight, cv::Size boardSize,
     std::vector<std::vector<cv::Point2f>>& imagePoints, std::vector<std::vector<cv::Point3f>>& objectPoints, cv::Mat& matImg)
 {
-    // Gather user input
-    int numberOfImages = 50;
     // Loop through video stream until we capture enough images (num_imgs) of checkerboard
     while(true)
     {
@@ -141,7 +140,7 @@ void captureImagesForCalibration(cv::VideoCapture& capLeft, cv::VideoCapture& ca
         {
             cv::Size winSize = cv::Size( 12, 12 );
             cv::Size zeroZone =cv::Size( -1, -1 );
-            cv::TermCriteria criteria = cv::TermCriteria( cv::TermCriteria::EPS + cv::TermCriteria::COUNT, 30, 0.001 );
+            cv::TermCriteria criteria = cv::TermCriteria( cv::TermCriteria::EPS + cv::TermCriteria::COUNT, 30, 0.1 );
             // Convert image to grayscale images
             cv::Mat src_gray;
             cvtColor( matImg, src_gray, cv::COLOR_BGR2GRAY );
@@ -155,7 +154,7 @@ void captureImagesForCalibration(cv::VideoCapture& capLeft, cv::VideoCapture& ca
             {
                 for (int j = 0; j < BOARDWIDTH - 1; j++)
                 {
-                    obj.push_back(cv::Point3f(j * CHECKERSIZE, i * CHECKERSIZE, 0));
+                    obj.push_back(cv::Point3f((float)j * CHECKERSIZE, (float)i * CHECKERSIZE, 0));
                 }
             }
             std::cout <<"Found corners!" << std::endl;
@@ -165,7 +164,7 @@ void captureImagesForCalibration(cv::VideoCapture& capLeft, cv::VideoCapture& ca
         cv::imshow("Camera", matImg);
         cv::waitKey(1);
         // Esc to exit if we have enough images of checkerboard
-        if (imagePoints.size() == numberOfImages)
+        if (imagePoints.size() == NUMBEROFIMAGES)
         {
             break;
         }
@@ -190,9 +189,9 @@ void calibrate(cv::VideoCapture& capLeft, cv::VideoCapture& capRight)
     //The rotation and translation vectors
     std::vector<cv::Mat> rvecs, tvecs;
     //Set flag to ignore higher order distortion coefficients k4 and k5.
-    int flag = cv::CALIB_FIX_K3 + cv::CALIB_FIX_K4 + cv::CALIB_ZERO_TANGENT_DIST + cv::CALIB_FIX_PRINCIPAL_POINT + cv::CALIB_FIX_ASPECT_RATIO;
-
-    cv::calibrateCamera(objectPoints, imagePoints, matImg.size(), K, D, rvecs, tvecs, flag);
+    int flag = cv::CALIB_FIX_K3 + cv::CALIB_ZERO_TANGENT_DIST + cv::CALIB_FIX_PRINCIPAL_POINT + cv::CALIB_FIX_ASPECT_RATIO;
+    std::cout << matImg.size() << std::endl;
+    float reprojectionError = cv::calibrateCamera(objectPoints, imagePoints, matImg.size(), K, D, rvecs, tvecs, flag);
     std::cout << "DUPALOG" << std::endl;
     while(true)
     {
@@ -208,11 +207,14 @@ void calibrate(cv::VideoCapture& capLeft, cv::VideoCapture& capRight)
         {
             cv::drawChessboardCorners(matImg, boardSize, cv::Mat(imagePoints), found);
 
-            std::vector< cv::Point3f > obj;
+            std::vector<cv::Point3f> obj;
             for (int i = 0; i < BOARDHEIGHT - 1; i++)
+            {
                 for (int j = 0; j < BOARDWIDTH - 1; j++)
+                {
                     obj.push_back(cv::Point3f((float)j * CHECKERSIZE, (float)i * CHECKERSIZE, 0));
-
+                }
+            }
             //SolvePnP
             cv::Mat rvec, tvec;
             cv::solvePnP(obj, imagePoints, K, D, rvec, tvec);
