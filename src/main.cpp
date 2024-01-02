@@ -18,24 +18,7 @@
 #define CHECKERSIZE 17 // [mm]
 #define SQUARESIZE (CHECKERSIZE * CHECKERSIZE) // [sqmm]
 #define NUMBEROFIMAGES 20
-
-class OpenSami
-{
-public:
-    OpenSami(const uint8_t leftCameraIndex, const uint8_t rightCameraIndex);
-    void initialize();
-private:
-    const uint8_t leftCameraIndex = LEFTCAMINDEX;
-    const uint8_t rightCameraIndex = RIGHTCAMINDEX;
-    cv::VideoCapture capLeft;
-    cv::VideoCapture capRight;
-};
-
-OpenSami::OpenSami(const uint8_t leftCameraIndex, const uint8_t rightCameraIndex)
-    : leftCameraIndex(leftCameraIndex)
-    , rightCameraIndex(rightCameraIndex)
-    {}
-
+#define CUBESQUARESIZE 15 //[mm]
 
 void getCameraIndexes()
 {
@@ -127,7 +110,7 @@ void drawAxis(cv::Mat &_image, cv::InputArray _cameraMatrix, cv::InputArray _dis
     cv::line(_image, imagePoints[0], imagePoints[3], cv::Scalar(255, 0, 0), 3);
 }
 
-void writeCalibrationData(const cv::Mat& K, const cv::Mat& D)
+void writeCalibrationData(const cv::Mat& KL, const cv::Mat& DL, const cv::Mat& KR, const cv::Mat& DR)
 {
     //Writing the data in a YAML file
     std::string outputFile = "calibration.txt";
@@ -137,8 +120,10 @@ void writeCalibrationData(const cv::Mat& K, const cv::Mat& D)
         std::cerr << "Error saving calibration data." << std::endl;
         return;
     }
-    fs << "K" << K;
-    fs << "D" << D;
+    fs << "KL" << KL;
+    fs << "DL" << DL;
+    fs << "KR" << KR;
+    fs << "DR" << DR;
     fs << "board_width" << BOARDWIDTH;
     fs << "board_height" << BOARDHEIGHT;
     fs << "square_size" << CHECKERSIZE;
@@ -183,7 +168,7 @@ void captureImagesForCalibration(cv::VideoCapture& capLeft, cv::VideoCapture& ca
         cv::Size winSize = cv::Size( 12, 12 );
         cv::Size zeroZone = cv::Size( -1, -1 );
         cv::TermCriteria criteria = cv::TermCriteria( cv::TermCriteria::EPS + cv::TermCriteria::COUNT, 30, 0.1 );
-        if(foundL)
+        if(foundL and foundR)
         {
             // Convert image to grayscale images
             cv::Mat grayL;
@@ -192,9 +177,7 @@ void captureImagesForCalibration(cv::VideoCapture& capLeft, cv::VideoCapture& ca
             cv::cornerSubPix( grayL, cornersL, winSize, zeroZone, criteria );
             // This function helps to visualize the checkerboard corners found (optional)
             cv::drawChessboardCorners(matImgL, boardSize, cv::Mat(cornersL), foundL);
-        }
-        if(foundR)
-        {
+
             // Convert image to grayscale images
             cv::Mat grayR;
             cvtColor(matImgR, grayR, cv::COLOR_BGR2GRAY);
@@ -202,9 +185,7 @@ void captureImagesForCalibration(cv::VideoCapture& capLeft, cv::VideoCapture& ca
             cv::cornerSubPix( grayR, cornersR, winSize, zeroZone, criteria );
             // This function helps to visualize the checkerboard corners found (optional)
             cv::drawChessboardCorners(matImgR, boardSize, cv::Mat(cornersR), foundR);
-        }
-        if(foundL and foundR)
-        {
+
             // Prepare the objectPoints and imagePoints vectors
             std::vector<cv::Point3f> obj;
             for (int i = 0; i < BOARDHEIGHT - 1; i++)
@@ -221,8 +202,7 @@ void captureImagesForCalibration(cv::VideoCapture& capLeft, cv::VideoCapture& ca
         }
         cv::imshow("Camera left", matImgL);
         cv::imshow("Camera right", matImgR);
-        cv::waitKey(100);
-        // Esc to exit if we have enough images of checkerboard
+        cv::waitKey(50);
         if (imagePointsL.size() == NUMBEROFIMAGES and imagePointsR.size() == NUMBEROFIMAGES)
         {
             break;
@@ -234,7 +214,6 @@ void calibrate(cv::VideoCapture& capLeft, cv::VideoCapture& capRight)
 {
     //Checkerboard corner coordinates in the image
     //Object points are the actual 3D coordinate of checkerboard points
-    // Define size of calibration board 
     std::vector<std::vector<cv::Point2f>> imagePointsL, imagePointsR;
     std::vector<std::vector<cv::Point3f>> objectPoints;
     cv::Size boardSize(BOARDWIDTH - 1, BOARDHEIGHT - 1);
@@ -248,19 +227,20 @@ void calibrate(cv::VideoCapture& capLeft, cv::VideoCapture& capRight)
     cv::Mat KR, DR;
     std::vector<cv::Mat> rvecsL, tvecsL;
     std::vector<cv::Mat> rvecsR, tvecsR;
-    //The rotation and translation vectors for cameras in stereo
-    std::vector<cv::Mat> rvecsS, tvecsS;
-    // Essential Matrix and fundamental matrix
-    cv::Mat ES, FS;
-    //Set flag
-    int flag = cv::CALIB_FIX_K3 + cv::CALIB_ZERO_TANGENT_DIST + cv::CALIB_FIX_PRINCIPAL_POINT + cv::CALIB_FIX_ASPECT_RATIO;
+    int flag = cv::CALIB_ZERO_TANGENT_DIST + cv::CALIB_FIX_PRINCIPAL_POINT + cv::CALIB_FIX_ASPECT_RATIO;
     double reprojectionErrorL = cv::calibrateCamera(objectPoints, imagePointsL, matImgL.size(), KL, DL, rvecsL, tvecsL, flag);
     double reprojectionErrorR = cv::calibrateCamera(objectPoints, imagePointsR, matImgR.size(), KR, DR, rvecsR, tvecsR, flag);
-    //ponizej nie dziala
-    double reprojectionErrorLR = cv::stereoCalibrate(objectPoints, imagePointsL, imagePointsR, matImgL, DL, matImgR, DR, matImgL.size(), rvecsS, tvecsS, ES, FS, cv::CALIB_FIX_INTRINSIC);
     std::cout << "reprojectionErrorL: " << reprojectionErrorL << std::endl;
     std::cout << "reprojectionErrorR: " << reprojectionErrorR << std::endl;
-    std::cout << "reprojectionErrorLR: " << reprojectionErrorLR << std::endl;
+
+    //ponizej nie dziala
+
+    // Essential Matrix and fundamental matrix
+    // cv::Mat ES, FS;
+    //The rotation and translation vectors for cameras in stereo
+    // std::vector<cv::Mat> rvecsS, tvecsS;
+    // double reprojectionErrorLR = cv::stereoCalibrate(objectPoints, imagePointsL, imagePointsR, matImgL, DL, matImgR, DR, matImgL.size(), rvecsS, tvecsS, ES, FS);
+    // std::cout << "reprojectionErrorLR: " << reprojectionErrorLR << std::endl;
     while(true)
     {
         capLeft >> matImgL;
@@ -309,7 +289,7 @@ void calibrate(cv::VideoCapture& capLeft, cv::VideoCapture& capRight)
             break;
         }
     }
-    writeCalibrationData(KL, DL);
+    writeCalibrationData(KL, DL, KR, DR);
 }
 
 int main()
