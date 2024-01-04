@@ -62,11 +62,8 @@ void getCameraIndexes()
     for (int cameraIndex = 0; cameraIndex < 10; ++cameraIndex) {
         cv::VideoCapture cap(cameraIndex);
 
-        // Check if the camera opened successfully
         if (cap.isOpened()) {
             std::cout << "Camera found at index: " << cameraIndex << std::endl;
-
-            // Release the VideoCapture
             cap.release();
         }
     }
@@ -90,7 +87,6 @@ void Calibrator::startVideoCaptures()
 
 void Calibrator::drawAxis(cv::Mat& matImg, cv::InputArray K, cv::InputArray D, cv::InputArray rvec, cv::InputArray tvec, float checkersize)
 {
-    // project axis points
     std::vector<cv::Point3f> axisPoints;
     axisPoints.push_back(cv::Point3f(0, 0, 0));
     axisPoints.push_back(cv::Point3f(checkersize, 0, 0));
@@ -99,7 +95,6 @@ void Calibrator::drawAxis(cv::Mat& matImg, cv::InputArray K, cv::InputArray D, c
     std::vector<cv::Point2f> imagePoints;
     cv::projectPoints(axisPoints, rvec, tvec, K, D, imagePoints);
 
-    // draw axis lines
     cv::line(matImg, imagePoints[0], imagePoints[1], cv::Scalar(0, 0, 255), 3);
     cv::line(matImg, imagePoints[0], imagePoints[2], cv::Scalar(0, 255, 0), 3);
     cv::line(matImg, imagePoints[0], imagePoints[3], cv::Scalar(255, 0, 0), 3);
@@ -107,7 +102,7 @@ void Calibrator::drawAxis(cv::Mat& matImg, cv::InputArray K, cv::InputArray D, c
 
 void Calibrator::writeCalibrationData()
 {
-    //Writing the data in a YAML file
+    //YAML file format
     std::string outputFile = "calibration.txt";
     cv::FileStorage fs(outputFile, cv::FileStorage::WRITE);
     if(not fs.isOpened())
@@ -165,7 +160,6 @@ void Calibrator::captureImagesForCalibration()
             // This function helps to visualize the checkerboard corners found (optional)
             cv::drawChessboardCorners(matImgR, boardSize, cv::Mat(cornersR), foundR);
 
-            // Prepare the objectPoints and imagePoints vectors
             std::vector<cv::Point3f> obj;
             for (int i = 0; i < BOARDHEIGHT - 1; i++)
             {
@@ -194,7 +188,6 @@ void Calibrator::calibrate()
     startVideoCaptures();
     captureImagesForCalibration();
     printf("Starting Calibration\n");
-    // int flag = cv::CALIB_FIX_K3 + cv::CALIB_ZERO_TANGENT_DIST + cv::CALIB_FIX_PRINCIPAL_POINT + cv::CALIB_FIX_ASPECT_RATIO;
     double reprojectionErrorL = cv::calibrateCamera(objectPoints, imagePointsL, matImgL.size(), KL, DL, rvecsL, tvecsL, flag);
     double reprojectionErrorR = cv::calibrateCamera(objectPoints, imagePointsR, matImgR.size(), KR, DR, rvecsR, tvecsR, flag);
     std::cout << "reprojectionErrorL: " << reprojectionErrorL << std::endl;
@@ -208,7 +201,6 @@ void Calibrator::calibrate()
             std::cerr << "Error reading from camera capture after calibration." << std::endl;
             break;
         }
-        //Found chessboard corners
         std::vector<cv::Point2f> imagePointsL, imagePointsR;
         bool foundL = cv::findChessboardCorners(matImgL, boardSize, imagePointsL, cv::CALIB_CB_ADAPTIVE_THRESH);
         bool foundR = cv::findChessboardCorners(matImgR, boardSize, imagePointsR, cv::CALIB_CB_ADAPTIVE_THRESH);
@@ -225,7 +217,6 @@ void Calibrator::calibrate()
                     obj.push_back(cv::Point3f((float)j * CHECKERSIZE, (float)i * CHECKERSIZE, 0));
                 }
             }
-            //SolvePnP
             cv::Mat rvecL, tvecL;
             cv::Mat rvecR, tvecR;
             cv::solvePnP(obj, imagePointsL, KL, DL, rvecL, tvecL);
@@ -241,8 +232,7 @@ void Calibrator::calibrate()
         cv::imshow("Camera right", matImgR);
         auto c = cv::waitKey(20);
 
-        // 27 == ESC
-        // !! The window with the image displayed in it must have focus (i.e. be selected) when you press the key
+        // ESC to exit
         if(c == 27) {
             break;
         }
