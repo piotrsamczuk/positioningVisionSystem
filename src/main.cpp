@@ -28,9 +28,7 @@ public:
 private:
     void writeCalibrationData();
     void captureImagesForCalibration();
-    std::pair <cv::Mat, cv::Mat> getFramesFromCaptures();
-    void viewCombinedCameraFeeds();
-    void startVideoCaptures(const unsigned int leftCameraIndex, const unsigned int rightCameraIndex);
+    void startVideoCaptures();
     void drawAxis(cv::Mat& matImg, cv::InputArray K, cv::InputArray D, cv::InputArray rvec, cv::InputArray tvec, float checkersize);
 
     cv::Size boardSize{BOARDWIDTH - 1, BOARDHEIGHT - 1};
@@ -74,50 +72,7 @@ void getCameraIndexes()
     }
 }
 
-std::pair <cv::Mat, cv::Mat> Calibrator::getFramesFromCaptures()
-{
-    // Read a frame from the camera
-    cv::Mat frameLeft;
-    cv::Mat frameRight;
-    capLeft >> frameLeft;
-    capRight >> frameRight;     
-    // Check if the frame is empty
-    if (frameLeft.empty())
-    {
-        std::cerr << "Error reading left frame from camera." << std::endl;
-    }
-    if (frameRight.empty())
-    {
-        std::cerr << "Error reading right frame from camera." << std::endl;
-    }
-    return std::make_pair(frameLeft, frameRight);
-}
-
-void Calibrator::viewCombinedCameraFeeds()
-{
-    // Create a window to display the camera feed
-    cv::namedWindow("Dual Webcams", cv::WINDOW_FREERATIO);
-    while (true)
-    {
-        auto [frameLeft, frameRight] = getFramesFromCaptures();
-        // Flip frames vertically
-        cv::flip(frameLeft, frameLeft, -1);
-        cv::flip(frameRight, frameRight, -1);
-        // Combine frames into one
-        cv::Mat combinedFrame;
-        cv::hconcat(frameLeft, frameRight, combinedFrame);
-        // Display the combined frame
-        cv::imshow("Dual Webcams", combinedFrame);
-        // To exit press esc
-        if (cv::waitKey(1) == 27)
-        {
-            break;
-        }
-    }
-    cv::destroyAllWindows();
-}
-
-void Calibrator::startVideoCaptures(const unsigned int leftCameraIndex, const unsigned int rightCameraIndex)
+void Calibrator::startVideoCaptures()
 {
     cv::VideoCapture tempCapLeft(leftCameraIndex);
     cv::VideoCapture tempCapRight(rightCameraIndex);
@@ -142,7 +97,7 @@ void Calibrator::drawAxis(cv::Mat& matImg, cv::InputArray K, cv::InputArray D, c
     axisPoints.push_back(cv::Point3f(0, checkersize, 0));
     axisPoints.push_back(cv::Point3f(0, 0, checkersize));
     std::vector<cv::Point2f> imagePoints;
-    cv::projectPoints(axisPoints, rvec, tvec, K, K, imagePoints);
+    cv::projectPoints(axisPoints, rvec, tvec, K, D, imagePoints);
 
     // draw axis lines
     cv::line(matImg, imagePoints[0], imagePoints[1], cv::Scalar(0, 0, 255), 3);
@@ -226,7 +181,7 @@ void Calibrator::captureImagesForCalibration()
         }
         cv::imshow("Camera left", matImgL);
         cv::imshow("Camera right", matImgR);
-        cv::waitKey(50);
+        cv::waitKey(20);
         if (imagePointsL.size() == NUMBEROFIMAGES and imagePointsR.size() == NUMBEROFIMAGES)
         {
             break;
@@ -236,9 +191,10 @@ void Calibrator::captureImagesForCalibration()
 
 void Calibrator::calibrate()
 {
+    startVideoCaptures();
     captureImagesForCalibration();
     printf("Starting Calibration\n");
-    int flag = cv::CALIB_ZERO_TANGENT_DIST + cv::CALIB_FIX_PRINCIPAL_POINT + cv::CALIB_FIX_ASPECT_RATIO;
+    // int flag = cv::CALIB_FIX_K3 + cv::CALIB_ZERO_TANGENT_DIST + cv::CALIB_FIX_PRINCIPAL_POINT + cv::CALIB_FIX_ASPECT_RATIO;
     double reprojectionErrorL = cv::calibrateCamera(objectPoints, imagePointsL, matImgL.size(), KL, DL, rvecsL, tvecsL, flag);
     double reprojectionErrorR = cv::calibrateCamera(objectPoints, imagePointsR, matImgR.size(), KR, DR, rvecsR, tvecsR, flag);
     std::cout << "reprojectionErrorL: " << reprojectionErrorL << std::endl;
@@ -283,7 +239,7 @@ void Calibrator::calibrate()
 
         cv::imshow("Camera left", matImgL);
         cv::imshow("Camera right", matImgR);
-        auto c = cv::waitKey(30);
+        auto c = cv::waitKey(20);
 
         // 27 == ESC
         // !! The window with the image displayed in it must have focus (i.e. be selected) when you press the key
