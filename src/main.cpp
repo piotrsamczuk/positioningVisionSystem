@@ -78,7 +78,7 @@ void viewCombinedCameraFeeds(cv::VideoCapture& capLeft, cv::VideoCapture& capRig
     cv::destroyAllWindows();
 }
 
-std::pair<cv::VideoCapture, cv::VideoCapture> startVideoCaptures(const unsigned int& leftCameraIndex, const unsigned int& rightCameraIndex) // maybe use int instead of const ref (4 bytes vs 8 bytes)
+std::pair<cv::VideoCapture, cv::VideoCapture> startVideoCaptures(const unsigned int& leftCameraIndex, const unsigned int& rightCameraIndex)
 {
     cv::VideoCapture capLeft(leftCameraIndex);
     cv::VideoCapture capRight(rightCameraIndex);
@@ -202,7 +202,7 @@ void captureImagesForCalibration(cv::VideoCapture& capLeft, cv::VideoCapture& ca
         }
         cv::imshow("Camera left", matImgL);
         cv::imshow("Camera right", matImgR);
-        cv::waitKey(50);
+        cv::waitKey(30);
         if (imagePointsL.size() == NUMBEROFIMAGES and imagePointsR.size() == NUMBEROFIMAGES)
         {
             break;
