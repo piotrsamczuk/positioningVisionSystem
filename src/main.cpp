@@ -18,7 +18,44 @@
 #define CHECKERSIZE 17 // [mm]
 #define SQUARESIZE (CHECKERSIZE * CHECKERSIZE) // [sqmm]
 #define NUMBEROFIMAGES 20
-#define CUBESQUARESIZE 15 //[mm]
+
+class Calibrator
+{
+public:
+    void calibrate();
+    Calibrator(const unsigned int leftCameraIndex, const unsigned int rightCameraIndex);
+    ~Calibrator();
+private:
+    void writeCalibrationData();
+    void captureImagesForCalibration();
+    void startVideoCaptures();
+    void drawAxis(cv::Mat& matImg, cv::InputArray K, cv::InputArray D, cv::InputArray rvec, cv::InputArray tvec, float checkersize);
+
+    cv::Size boardSize{BOARDWIDTH - 1, BOARDHEIGHT - 1};
+    cv::VideoCapture capLeft;
+    cv::VideoCapture capRight;
+    const unsigned int leftCameraIndex, rightCameraIndex;
+    std::vector<std::vector<cv::Point2f>> imagePointsL, imagePointsR;
+    std::vector<std::vector<cv::Point3f>> objectPoints;
+    cv::Mat matImgL, matImgR;
+    cv::Mat KL, DL;
+    cv::Mat KR, DR;
+    std::vector<cv::Mat> rvecsL, tvecsL;
+    std::vector<cv::Mat> rvecsR, tvecsR;
+    int flag = cv::CALIB_FIX_K3 + cv::CALIB_ZERO_TANGENT_DIST + cv::CALIB_FIX_PRINCIPAL_POINT + cv::CALIB_FIX_ASPECT_RATIO;
+};
+
+Calibrator::Calibrator(const unsigned int leftCameraIndex, const unsigned int rightCameraIndex)
+    : leftCameraIndex(leftCameraIndex), rightCameraIndex(rightCameraIndex)
+{
+
+}
+
+Calibrator::~Calibrator()
+{
+    capLeft.release();
+    capRight.release();
+}
 
 void getCameraIndexes()
 {
@@ -35,82 +72,40 @@ void getCameraIndexes()
     }
 }
 
-std::pair <cv::Mat, cv::Mat> getFramesFromCaptures(cv::VideoCapture& capLeft, cv::VideoCapture& capRight)
+void Calibrator::startVideoCaptures()
 {
-    // Read a frame from the camera
-    cv::Mat frameLeft;
-    cv::Mat frameRight;
-    capLeft >> frameLeft;
-    capRight >> frameRight;     
-    // Check if the frame is empty
-    if (frameLeft.empty())
-    {
-        std::cerr << "Error reading left frame from camera." << std::endl;
-    }
-    if (frameRight.empty())
-    {
-        std::cerr << "Error reading right frame from camera." << std::endl;
-    }
-    return std::make_pair(frameLeft, frameRight);
-}
-
-void viewCombinedCameraFeeds(cv::VideoCapture& capLeft, cv::VideoCapture& capRight)
-{
-    // Create a window to display the camera feed
-    cv::namedWindow("Dual Webcams", cv::WINDOW_FREERATIO);
-    while (true)
-    {
-        auto [frameLeft, frameRight] = getFramesFromCaptures(capLeft, capRight);
-        // Flip frames vertically
-        cv::flip(frameLeft, frameLeft, -1);
-        cv::flip(frameRight, frameRight, -1);
-        // Combine frames into one
-        cv::Mat combinedFrame;
-        cv::hconcat(frameLeft, frameRight, combinedFrame);
-        // Display the combined frame
-        cv::imshow("Dual Webcams", combinedFrame);
-        // To exit press esc
-        if (cv::waitKey(1) == 27)
-        {
-            break;
-        }
-    }
-    cv::destroyAllWindows();
-}
-
-std::pair<cv::VideoCapture, cv::VideoCapture> startVideoCaptures(const unsigned int& leftCameraIndex, const unsigned int& rightCameraIndex)
-{
-    cv::VideoCapture capLeft(leftCameraIndex);
-    cv::VideoCapture capRight(rightCameraIndex);
-    if (not capLeft.isOpened())
+    cv::VideoCapture tempCapLeft(leftCameraIndex);
+    cv::VideoCapture tempCapRight(rightCameraIndex);
+    if (not tempCapLeft.isOpened())
     {
         std::cerr << "Error opening the left camera." << std::endl;
     }
-    if (not capRight.isOpened())
+    if (not tempCapRight.isOpened())
     {
         std::cerr << "Error opening the right camera." << std::endl;
     }
-    return std::make_pair(capLeft, capRight);
+    this->capLeft = tempCapLeft;
+    this->capRight = tempCapRight;
 }
 
-void drawAxis(cv::Mat &_image, cv::InputArray _cameraMatrix, cv::InputArray _distCoeffs, cv::InputArray _rvec, cv::InputArray _tvec, float length)
+void Calibrator::drawAxis(cv::Mat& matImg, cv::InputArray K, cv::InputArray D, cv::InputArray rvec, cv::InputArray tvec, float checkersize)
 {
     // project axis points
     std::vector<cv::Point3f> axisPoints;
     axisPoints.push_back(cv::Point3f(0, 0, 0));
-    axisPoints.push_back(cv::Point3f(length, 0, 0));
-    axisPoints.push_back(cv::Point3f(0, length, 0));
-    axisPoints.push_back(cv::Point3f(0, 0, length));
+    axisPoints.push_back(cv::Point3f(checkersize, 0, 0));
+    axisPoints.push_back(cv::Point3f(0, checkersize, 0));
+    axisPoints.push_back(cv::Point3f(0, 0, checkersize));
     std::vector<cv::Point2f> imagePoints;
-    cv::projectPoints(axisPoints, _rvec, _tvec, _cameraMatrix, _distCoeffs, imagePoints);
+    cv::projectPoints(axisPoints, rvec, tvec, K, D, imagePoints);
 
     // draw axis lines
-    cv::line(_image, imagePoints[0], imagePoints[1], cv::Scalar(0, 0, 255), 3);
-    cv::line(_image, imagePoints[0], imagePoints[2], cv::Scalar(0, 255, 0), 3);
-    cv::line(_image, imagePoints[0], imagePoints[3], cv::Scalar(255, 0, 0), 3);
+    cv::line(matImg, imagePoints[0], imagePoints[1], cv::Scalar(0, 0, 255), 3);
+    cv::line(matImg, imagePoints[0], imagePoints[2], cv::Scalar(0, 255, 0), 3);
+    cv::line(matImg, imagePoints[0], imagePoints[3], cv::Scalar(255, 0, 0), 3);
 }
 
-void writeCalibrationData(const cv::Mat& KL, const cv::Mat& DL, const cv::Mat& KR, const cv::Mat& DR)
+void Calibrator::writeCalibrationData()
 {
     //Writing the data in a YAML file
     std::string outputFile = "calibration.txt";
@@ -130,23 +125,7 @@ void writeCalibrationData(const cv::Mat& KL, const cv::Mat& DL, const cv::Mat& K
     printf("Done writing calibration data\n");
 }
 
-void readCalibrationData()
-{
-    cv::Mat K, D;
-    std::string inputFile = "calibration.txt";
-    cv::FileStorage fs(inputFile, cv::FileStorage::READ);
-    if(not fs.isOpened())
-    {
-        std::cerr << "Error reading calibration data." << std::endl;
-        return;
-    }
-
-
-    printf("Done reading calibration data\n");
-}
-
-void captureImagesForCalibration(cv::VideoCapture& capLeft, cv::VideoCapture& capRight, cv::Size boardSize,
-    std::vector<std::vector<cv::Point2f>>& imagePointsL, std::vector<std::vector<cv::Point2f>>& imagePointsR, std::vector<std::vector<cv::Point3f>>& objectPoints, cv::Mat& matImgL, cv::Mat& matImgR)
+void Calibrator::captureImagesForCalibration()
 {
     // Loop through video stream until we capture enough images (num_imgs) of checkerboard
     while(true)
@@ -202,7 +181,7 @@ void captureImagesForCalibration(cv::VideoCapture& capLeft, cv::VideoCapture& ca
         }
         cv::imshow("Camera left", matImgL);
         cv::imshow("Camera right", matImgR);
-        cv::waitKey(30);
+        cv::waitKey(20);
         if (imagePointsL.size() == NUMBEROFIMAGES and imagePointsR.size() == NUMBEROFIMAGES)
         {
             break;
@@ -210,24 +189,12 @@ void captureImagesForCalibration(cv::VideoCapture& capLeft, cv::VideoCapture& ca
     }
 }
 
-void calibrate(cv::VideoCapture& capLeft, cv::VideoCapture& capRight)
+void Calibrator::calibrate()
 {
-    //Checkerboard corner coordinates in the image
-    //Object points are the actual 3D coordinate of checkerboard points
-    std::vector<std::vector<cv::Point2f>> imagePointsL, imagePointsR;
-    std::vector<std::vector<cv::Point3f>> objectPoints;
-    cv::Size boardSize(BOARDWIDTH - 1, BOARDHEIGHT - 1);
-    cv::Mat matImgL, matImgR;
-    captureImagesForCalibration(capLeft, capRight, boardSize, imagePointsL, imagePointsR, objectPoints, matImgL, matImgR);
+    startVideoCaptures();
+    captureImagesForCalibration();
     printf("Starting Calibration\n");
-    //K contains the intrinsics
-    //D contains the distortion coefficients
-    //The rotation and translation vectors
-    cv::Mat KL, DL;
-    cv::Mat KR, DR;
-    std::vector<cv::Mat> rvecsL, tvecsL;
-    std::vector<cv::Mat> rvecsR, tvecsR;
-    int flag = cv::CALIB_FIX_K3 + cv::CALIB_ZERO_TANGENT_DIST + cv::CALIB_FIX_PRINCIPAL_POINT + cv::CALIB_FIX_ASPECT_RATIO;
+    // int flag = cv::CALIB_FIX_K3 + cv::CALIB_ZERO_TANGENT_DIST + cv::CALIB_FIX_PRINCIPAL_POINT + cv::CALIB_FIX_ASPECT_RATIO;
     double reprojectionErrorL = cv::calibrateCamera(objectPoints, imagePointsL, matImgL.size(), KL, DL, rvecsL, tvecsL, flag);
     double reprojectionErrorR = cv::calibrateCamera(objectPoints, imagePointsR, matImgR.size(), KR, DR, rvecsR, tvecsR, flag);
     std::cout << "reprojectionErrorL: " << reprojectionErrorL << std::endl;
@@ -272,7 +239,7 @@ void calibrate(cv::VideoCapture& capLeft, cv::VideoCapture& capRight)
 
         cv::imshow("Camera left", matImgL);
         cv::imshow("Camera right", matImgR);
-        auto c = cv::waitKey(30);
+        auto c = cv::waitKey(20);
 
         // 27 == ESC
         // !! The window with the image displayed in it must have focus (i.e. be selected) when you press the key
@@ -280,20 +247,12 @@ void calibrate(cv::VideoCapture& capLeft, cv::VideoCapture& capRight)
             break;
         }
     }
-    writeCalibrationData(KL, DL, KR, DR);
+    writeCalibrationData();
 }
 
 int main()
 {
-    // Start video capture of both cameras
-    auto [capLeft, capRight] = startVideoCaptures(LEFTCAMINDEX, RIGHTCAMINDEX);
-
-    // viewCombinedCameraFeeds(capLeft, capRight);
-    calibrate(capLeft, capRight);
-
-    // Release the VideoCapture and close the window
-    capLeft.release();
-    capRight.release();
-
+    Calibrator calib(LEFTCAMINDEX, RIGHTCAMINDEX);
+    calib.calibrate();
     return 0;
 }
