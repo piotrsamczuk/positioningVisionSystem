@@ -187,7 +187,7 @@ void Calibrator::calibrate()
 {
     startVideoCaptures();
     captureImagesForCalibration();
-    printf("Starting Calibration\n");
+    printf("Calibrating...\n");
     double reprojectionErrorL = cv::calibrateCamera(objectPoints, imagePointsL, matImgL.size(), KL, DL, rvecsL, tvecsL, flag);
     double reprojectionErrorR = cv::calibrateCamera(objectPoints, imagePointsR, matImgR.size(), KR, DR, rvecsR, tvecsR, flag);
     std::cout << "reprojectionErrorL: " << reprojectionErrorL << std::endl;
