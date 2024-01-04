@@ -227,20 +227,11 @@ void calibrate(cv::VideoCapture& capLeft, cv::VideoCapture& capRight)
     cv::Mat KR, DR;
     std::vector<cv::Mat> rvecsL, tvecsL;
     std::vector<cv::Mat> rvecsR, tvecsR;
-    int flag = cv::CALIB_ZERO_TANGENT_DIST + cv::CALIB_FIX_PRINCIPAL_POINT + cv::CALIB_FIX_ASPECT_RATIO;
+    int flag = cv::CALIB_FIX_K3 + cv::CALIB_ZERO_TANGENT_DIST + cv::CALIB_FIX_PRINCIPAL_POINT + cv::CALIB_FIX_ASPECT_RATIO;
     double reprojectionErrorL = cv::calibrateCamera(objectPoints, imagePointsL, matImgL.size(), KL, DL, rvecsL, tvecsL, flag);
     double reprojectionErrorR = cv::calibrateCamera(objectPoints, imagePointsR, matImgR.size(), KR, DR, rvecsR, tvecsR, flag);
     std::cout << "reprojectionErrorL: " << reprojectionErrorL << std::endl;
     std::cout << "reprojectionErrorR: " << reprojectionErrorR << std::endl;
-
-    //ponizej nie dziala
-
-    // Essential Matrix and fundamental matrix
-    // cv::Mat ES, FS;
-    //The rotation and translation vectors for cameras in stereo
-    // std::vector<cv::Mat> rvecsS, tvecsS;
-    // double reprojectionErrorLR = cv::stereoCalibrate(objectPoints, imagePointsL, imagePointsR, matImgL, DL, matImgR, DR, matImgL.size(), rvecsS, tvecsS, ES, FS);
-    // std::cout << "reprojectionErrorLR: " << reprojectionErrorLR << std::endl;
     while(true)
     {
         capLeft >> matImgL;
