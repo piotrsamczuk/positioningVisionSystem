@@ -3,13 +3,11 @@
 #include <vector>
 #include <utility>
 #include <string>
-#include <memory>
 #include <cstdint>
 #include <opencv2/opencv.hpp>
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/core/core.hpp>
 #include <opencv2/calib3d/calib3d.hpp>
-#include "opencv2/imgproc/imgproc.hpp"
 
 #define LEFTCAMINDEX 0
 #define RIGHTCAMINDEX 1
@@ -42,7 +40,7 @@ private:
     cv::Mat KR, DR;
     std::vector<cv::Mat> rvecsL, tvecsL;
     std::vector<cv::Mat> rvecsR, tvecsR;
-    int flag = cv::CALIB_FIX_K3 + cv::CALIB_ZERO_TANGENT_DIST + cv::CALIB_FIX_PRINCIPAL_POINT + cv::CALIB_FIX_ASPECT_RATIO;
+    const unsigned int flag = cv::CALIB_FIX_K3 + cv::CALIB_ZERO_TANGENT_DIST + cv::CALIB_FIX_PRINCIPAL_POINT + cv::CALIB_FIX_ASPECT_RATIO;
 };
 
 Calibrator::Calibrator(const unsigned int leftCameraIndex, const unsigned int rightCameraIndex)
