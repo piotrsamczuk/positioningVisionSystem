@@ -14,7 +14,6 @@
 #define BOARDWIDTH 11
 #define BOARDHEIGHT 8
 #define CHECKERSIZE 17 // [mm]
-#define SQUARESIZE (CHECKERSIZE * CHECKERSIZE) // [sqmm]
 #define NUMBEROFIMAGES 20
 
 class Calibrator
