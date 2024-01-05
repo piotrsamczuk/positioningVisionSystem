@@ -26,7 +26,7 @@ private:
     void writeCalibrationData();
     void captureImagesForCalibration();
     void startVideoCaptures();
-    void drawAxis(cv::Mat& matImg, cv::InputArray K, cv::InputArray D, cv::InputArray rvec, cv::InputArray tvec, float checkersize);
+    void drawAxis(cv::Mat& matImg, cv::Mat K, cv::Mat D, cv::Mat rvec, cv::Mat tvec, const unsigned int checkersize);
 
     cv::Size boardSize{BOARDWIDTH - 1, BOARDHEIGHT - 1};
     cv::VideoCapture capLeft;
@@ -82,7 +82,7 @@ void Calibrator::startVideoCaptures()
     this->capRight = tempCapRight;
 }
 
-void Calibrator::drawAxis(cv::Mat& matImg, cv::InputArray K, cv::InputArray D, cv::InputArray rvec, cv::InputArray tvec, float checkersize)
+void Calibrator::drawAxis(cv::Mat& matImg, cv::Mat K, cv::Mat D, cv::Mat rvec, cv::Mat tvec, const unsigned int checkersize)
 {
     std::vector<cv::Point3f> axisPoints;
     axisPoints.push_back(cv::Point3f(0, 0, 0));
