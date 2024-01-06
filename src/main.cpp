@@ -40,6 +40,7 @@ private:
     std::vector<cv::Mat> rvecsL, tvecsL;
     std::vector<cv::Mat> rvecsR, tvecsR;
     const unsigned int flag = cv::CALIB_FIX_K3 + cv::CALIB_ZERO_TANGENT_DIST + cv::CALIB_FIX_PRINCIPAL_POINT + cv::CALIB_FIX_ASPECT_RATIO;
+    bool imageCaptureFailed = false;
 };
 
 Calibrator::Calibrator(const unsigned int leftCameraIndex, const unsigned int rightCameraIndex)
@@ -118,21 +119,17 @@ void Calibrator::writeCalibrationData()
 
 void Calibrator::captureImagesForCalibration()
 {
-    // Loop through video stream until we capture enough images (num_imgs) of checkerboard
     while(true)
     {
         capLeft >> matImgL;
         capRight >> matImgR;
         if(matImgL.empty() or matImgR.empty())
         {
+            imageCaptureFailed = true;
             break;
         }
-        // Сheckerboard corner coordinates in the image
         std::vector<cv::Point2f> cornersL;
         std::vector<cv::Point2f> cornersR;
-        // Here we find all the corner points of each image and their corresponding 3D world points
-        // and prepare the corresponding vectors.
-        // Find all the checkerboard corners
         bool foundL = cv::findChessboardCorners(matImgL, boardSize, cornersL, cv::CALIB_CB_ADAPTIVE_THRESH);
         bool foundR = cv::findChessboardCorners(matImgR, boardSize, cornersR, cv::CALIB_CB_ADAPTIVE_THRESH);
         cv::Size winSize = cv::Size( 12, 12 );
@@ -140,20 +137,14 @@ void Calibrator::captureImagesForCalibration()
         cv::TermCriteria criteria = cv::TermCriteria( cv::TermCriteria::EPS + cv::TermCriteria::COUNT, 30, 0.1 );
         if(foundL and foundR)
         {
-            // Convert image to grayscale images
             cv::Mat grayL;
             cvtColor(matImgL, grayL, cv::COLOR_BGR2GRAY);
-            // Find more exact corner positions (more exact than integer pixels)
             cv::cornerSubPix( grayL, cornersL, winSize, zeroZone, criteria );
-            // This function helps to visualize the checkerboard corners found (optional)
             cv::drawChessboardCorners(matImgL, boardSize, cv::Mat(cornersL), foundL);
 
-            // Convert image to grayscale images
             cv::Mat grayR;
             cvtColor(matImgR, grayR, cv::COLOR_BGR2GRAY);
-            // Find more exact corner positions (more exact than integer pixels)
             cv::cornerSubPix( grayR, cornersR, winSize, zeroZone, criteria );
-            // This function helps to visualize the checkerboard corners found (optional)
             cv::drawChessboardCorners(matImgR, boardSize, cv::Mat(cornersR), foundR);
 
             std::vector<cv::Point3f> obj;
@@ -171,7 +162,7 @@ void Calibrator::captureImagesForCalibration()
         }
         cv::imshow("Camera left", matImgL);
         cv::imshow("Camera right", matImgR);
-        cv::waitKey(20);
+        cv::waitKey(1);
         if (imagePointsL.size() == NUMBEROFIMAGES and imagePointsR.size() == NUMBEROFIMAGES)
         {
             break;
@@ -183,6 +174,10 @@ void Calibrator::calibrate()
 {
     startVideoCaptures();
     captureImagesForCalibration();
+    if(imageCaptureFailed)
+    {
+        return;
+    }
     printf("Calibrating...\n");
     double reprojectionErrorL = cv::calibrateCamera(objectPoints, imagePointsL, matImgL.size(), KL, DL, rvecsL, tvecsL, flag);
     double reprojectionErrorR = cv::calibrateCamera(objectPoints, imagePointsR, matImgR.size(), KR, DR, rvecsR, tvecsR, flag);
