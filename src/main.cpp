@@ -14,7 +14,7 @@
 #define BOARDWIDTH 11
 #define BOARDHEIGHT 8
 #define CHECKERSIZE 17 // [mm]
-#define NUMBEROFIMAGES 20
+#define NUMBEROFIMAGES 15
 
 class Calibrator
 {
@@ -91,7 +91,6 @@ void Calibrator::drawAxis(cv::Mat& matImg, cv::Mat K, cv::Mat D, cv::Mat rvec, c
     axisPoints.push_back(cv::Point3f(0, 0, checkersize));
     std::vector<cv::Point2f> imagePoints;
     cv::projectPoints(axisPoints, rvec, tvec, K, D, imagePoints);
-
     cv::line(matImg, imagePoints[0], imagePoints[1], cv::Scalar(0, 0, 255), 3);
     cv::line(matImg, imagePoints[0], imagePoints[2], cv::Scalar(0, 255, 0), 3);
     cv::line(matImg, imagePoints[0], imagePoints[3], cv::Scalar(255, 0, 0), 3);
@@ -104,7 +103,7 @@ void Calibrator::writeCalibrationData()
     cv::FileStorage fs(outputFile, cv::FileStorage::WRITE);
     if(not fs.isOpened())
     {
-        std::cerr << "Error saving calibration data." << std::endl;
+        std::cerr << "Error opening file storage while saving calibration data." << std::endl;
         return;
     }
     fs << "KL" << KL;
@@ -114,7 +113,7 @@ void Calibrator::writeCalibrationData()
     fs << "board_width" << BOARDWIDTH;
     fs << "board_height" << BOARDHEIGHT;
     fs << "square_size" << CHECKERSIZE;
-    printf("Done writing calibration data\n");
+    printf("Calibration data saved successfully!\n");
 }
 
 void Calibrator::captureImagesForCalibration()
